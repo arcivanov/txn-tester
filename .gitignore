@@ -1,0 +1,4 @@
+# Recon clones / local build artifacts (never committed)
+.claude-tmp/
+*.log
+target/
