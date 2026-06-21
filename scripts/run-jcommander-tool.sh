@@ -55,4 +55,18 @@ else
     echo "$LABEL: WARNING: no log file produced to evacuate" >&2
 fi
 
+# The tool only logs violations (it never exits non-zero on a finding), so turn a
+# detected inconsistency into the exotic finding exit code. Only do this when the
+# run otherwise completed cleanly, so a real execution error keeps its own code.
+if [ "$rc" -eq 0 ] && [ -n "${logfile:-}" ] && [ -f "$logfile" ]; then
+    set +e
+    /opt/txn-tester/detect-findings.sh "$LABEL" "$logfile"
+    df_rc=$?
+    set -e
+    if [ "$df_rc" -ne 0 ]; then
+        echo "$LABEL: INCONSISTENCY DETECTED (exit $df_rc)" >&2
+        rc=$df_rc
+    fi
+fi
+
 exit "$rc"

@@ -147,6 +147,27 @@ No normalization is performed — the artifacts are exactly what each tool emits
 (TROC/Fucci: log4j text with inline `BUG REPORT` blocks; APTrans: one labeled
 `.txt` per anomaly under `check/`).
 
+## Exit codes
+
+None of the upstream tools signal a discovered violation through their own exit
+code — TROC/Fucci run an unbounded loop that only *logs* a `BUG REPORT` /
+`Error: Inconsistent …` block before being killed by `timeout`, and APTrans only
+*writes* artifacts under `check/` then exits `0`. The image therefore inspects
+each tool's output and maps a finding onto an **exotic, easily-detected exit
+code** so any caller can act on `$?`:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Ran cleanly — no anomaly/inconsistency detected |
+| `100` | **A transaction anomaly/inconsistency was found** (TROC/Fucci logged a `BUG REPORT`/`Error: Inconsistent …`, or APTrans wrote a `check/` artifact) |
+| any other non-zero | Infrastructural/execution failure (e.g. classpath error, connection refused, crash) — **not** a finding |
+
+`100` is chosen so a real finding cannot be confused with a clean run (`0`), a
+tool/infrastructure error, or a `timeout` kill (`124`/`143`). Detection runs only
+after an otherwise-clean completion, so an infrastructural failure keeps its own
+exit code rather than being reported as a finding. The detection logic lives in
+`scripts/detect-findings.sh` and is unit-tested by `test/detect-findings-test.sh`.
+
 ## Running all three in parallel
 
 One instance each of TROC, Fucci, and APTrans can run concurrently against a

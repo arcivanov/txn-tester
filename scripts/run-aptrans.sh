@@ -83,4 +83,18 @@ for iso in "${isolations[@]}"; do
     fi
 done
 
+# APTrans records anomalies as files under check/ (it never exits non-zero on a
+# finding), so turn a non-empty check/ tree into the exotic finding exit code.
+# Only when the run otherwise completed cleanly, so a real error keeps its code.
+if [ "$overall_rc" -eq 0 ]; then
+    set +e
+    /opt/txn-tester/detect-findings.sh aptrans "$APTRANS_DIR/check"
+    df_rc=$?
+    set -e
+    if [ "$df_rc" -ne 0 ]; then
+        echo "aptrans: ANOMALY DETECTED (exit $df_rc)" >&2
+        overall_rc=$df_rc
+    fi
+fi
+
 exit "$overall_rc"

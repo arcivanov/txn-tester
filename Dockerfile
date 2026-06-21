@@ -83,6 +83,7 @@ RUN apt-get update \
 
 COPY --from=builder /opt/tools /opt/tools
 COPY scripts/start.sh scripts/run-jcommander-tool.sh scripts/run-aptrans.sh \
+     scripts/detect-findings.sh \
      /opt/txn-tester/
 
 # This image is designed to run as an ARBITRARY uid/gid (e.g.
