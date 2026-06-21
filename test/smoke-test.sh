@@ -46,14 +46,28 @@ done
 [ -n "$ready" ] || { echo "smoke: FAIL — MariaDB never became ready" >&2; exit 1; }
 
 rc=0
+# The smoke test verifies the image PLUMBING (the tool runs end-to-end, connects,
+# and evacuates artifacts) — not that MariaDB is bug-free. These fuzzers can
+# legitimately report an inconsistency even against stock MariaDB in a short run,
+# in which case the image exits with the exotic finding code 100 (see
+# scripts/detect-findings.sh). That still means the image worked, so we accept
+# BOTH 0 (clean) and 100 (finding) here and fail only on other (infrastructural)
+# exit codes.
+FINDING_RC=100
 for tool in troc fucci aptrans; do
     echo "==================== smoke: $tool ===================="
-    if ! docker run --rm --network "$NET" --user "$TEST_UID:$TEST_GID" \
+    set +e
+    docker run --rm --network "$NET" --user "$TEST_UID:$TEST_GID" \
             -v "$OUT:/output" \
             -e TOOL="$tool" -e MODE=verify \
             -e DB_HOST="$DB" -e DB_USER=root -e DB_PASSWORD=secret \
-            "$IMAGE"; then
-        echo "smoke: FAIL — $tool exited non-zero" >&2
+            "$IMAGE"
+    tool_rc=$?
+    set -e
+    if [ "$tool_rc" -eq "$FINDING_RC" ]; then
+        echo "smoke: note — $tool reported a finding (exit $tool_rc); image OK"
+    elif [ "$tool_rc" -ne 0 ]; then
+        echo "smoke: FAIL — $tool exited non-zero ($tool_rc, infrastructural)" >&2
         rc=1
         continue
     fi
